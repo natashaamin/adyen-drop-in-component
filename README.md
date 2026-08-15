@@ -6,40 +6,64 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the system design, payment lifecycle,
 
 ## Features
 
-**Payment methods**
-- Cards (Visa, Mastercard, Amex), iDEAL, Bancontact, PayPal, Google Pay, Apple Pay — payment methods are resolved by Adyen based on country, no hardcoding
-- Redirect methods (iDEAL, etc.) return to `https://www.adyen.com` after bank flow
-
-**Card configuration**
-- Cardholder name (required)
-- Live BIN lookup panel — shows brand, issuing country, and 3DS support after the first 6–8 digits
+**Payment**
+- Cards, iDEAL, Bancontact, PayPal, Google Pay, Apple Pay — resolved by Adyen per country, no hardcoding
+- Cardholder name required on card form
+- Live BIN lookup panel — brand, issuing country, and 3DS support shown after the first 6–8 digits
 - Optional partial billing address (postcode + country) for AVS fraud checks
-- Save card checkbox (`storePaymentMethodMode: "askForConsent"`) — shopper consents to tokenisation, token stored as `CardOnFile`
+- Save card checkbox — `storePaymentMethodMode: "askForConsent"` with `recurringProcessingModel: "CardOnFile"` (requires tokenisation enabled on the merchant account)
 - Click to Pay — enter a shopper email and Visa/Mastercard silently recognise returning shoppers via SRC
 
 **Developer demos**
-- Simulate network retry — calls `/sessions` twice with the same idempotency key and shows both returned session IDs side by side, confirming Adyen returns the same session
-- Webhook-driven order lifecycle — `OutcomePanel` shows the Drop-in's immediate `resultCode` alongside the backend's webhook-confirmed status, deliberately side by side so the gap is visible
-- Recent orders table — click any row to expand the full event history (pending → authorised → captured → refunded etc.)
+- Simulate network retry — calls `/sessions` twice with the same idempotency key and shows both session IDs side by side, proving Adyen returns the same one
+- Webhook-driven order lifecycle — `OutcomePanel` shows the Drop-in's client-side `resultCode` alongside the backend's webhook-confirmed status, deliberately side by side so the gap is visible
+- Recent orders table — click any row to expand the full event history
 
 **UX**
-- Two-column store page: demo settings on the left, product card + shopper form on the right
-- Floating 💳 test cards bubble — click to open a panel with copyable card numbers, expiries, and CVCs grouped by scenario
-- After a successful payment the app returns to the store page automatically
-- Five accent-color theme swatches update the Drop-in's CSS custom properties at runtime without remounting
+- Two-column store page: settings panel always visible on the left, product card on the right
+- Floating 💳 test card bubble — click to open a panel with copyable card numbers, expiries, and CVCs
+- After a successful card payment the app automatically returns to the store page after 2.5 seconds
+- Five accent-colour theme swatches update the Drop-in's CSS custom properties at runtime without remounting
 
-## Structure
+## Project structure
 
 ```
-backend/   Node.js/Express — session creation, webhook verification, order lifecycle
-frontend/  React (Vite) — Drop-in, controls, outcome panel, orders table
+backend/
+  src/
+    config.js                  env vars
+    server.js                  Express app, CORS, routes
+    routes/
+      sessions.js              POST /api/sessions, GET /api/config
+      webhooks.js              POST /api/webhooks/notifications
+      orders.js                GET /api/orders, GET /api/orders/:ref
+    services/
+      adyenClient.js           Adyen SDK client
+      orderStore.js            in-memory order ledger
+      idempotencyStore.js      webhook de-duplication (24h TTL)
+
+frontend/
+  src/
+    App.jsx                    store page + checkout page routing
+    components/
+      ControlsPanel.jsx        country, amount, theme, toggles
+      DropinContainer.jsx      AdyenCheckout + Dropin lifecycle
+      OutcomePanel.jsx         resultCode vs webhook status
+      OrdersPanel.jsx          recent orders table with history
+      TestCardsPanel.jsx       floating test card bubble
+      ResultPage.jsx           /result route (not active — see note below)
+    lib/
+      api.js                   frontend → backend fetch helpers
+      themes.js                CSS custom property themes
+    styles/
+      index.css                app styles
+      override.css             Adyen Drop-in structural overrides
 ```
 
 ## Prerequisites
 
 - Node.js 20+
-- An Adyen **test** merchant account with tokenisation enabled, API key, and client key
-  (Customer Area → Developers → API credentials)
+- An Adyen **test** merchant account, API key, and client key (Customer Area → Developers → API credentials)
+- Tokenisation enabled on the merchant account for save card to work (Customer Area → Account → Settings → Recurring)
 
 ## Setup
 
@@ -47,8 +71,6 @@ frontend/  React (Vite) — Drop-in, controls, outcome panel, orders table
 cd backend && npm install
 cd ../frontend && npm install
 ```
-
-Copy the env templates and fill in your credentials:
 
 ```bash
 cp backend/.env.example backend/.env
@@ -71,10 +93,10 @@ FRONTEND_URL=http://localhost:8080
 ## Running locally
 
 ```bash
-# terminal 1
+# terminal 1 — backend
 cd backend && npm run dev
 
-# terminal 2
+# terminal 2 — frontend
 cd frontend && npm run dev
 ```
 
@@ -82,19 +104,19 @@ Open `http://localhost:8080`.
 
 ## Webhooks
 
-Adyen posts webhook notifications server-to-server, so your backend needs a public URL during local development:
+Adyen delivers webhook notifications server-to-server, so your backend needs a public URL:
 
 ```bash
 cloudflared tunnel --url http://localhost:8081
 ```
 
-Then register the webhook and write the HMAC key into `backend/.env` automatically:
+Register the webhook and write the HMAC key into `backend/.env` automatically:
 
 ```bash
 ./setup-webhook.sh https://<your-tunnel-url>
 ```
 
-Without a webhook the Drop-in still completes payments end-to-end, but orders stay in `pending` — the webhook is what confirms the outcome and drives the order lifecycle.
+Without a webhook the Drop-in completes payments end-to-end, but orders stay in `pending` — the webhook is what confirms the outcome and drives lifecycle transitions.
 
 ## Test cards
 
@@ -102,14 +124,14 @@ Use the floating 💳 button in the bottom-right corner of the app. All numbers 
 
 | Scenario | Card | Expiry | CVC |
 |---|---|---|---|
-| Authorised | Visa `4111 1111 1111 1111` | 03/30 | 737 |
-| Authorised | Mastercard `5555 5555 5555 4444` | 03/30 | 737 |
-| Authorised | Amex `3700 0000 0000 002` | 03/30 | 7373 |
+| Authorised — no 3DS | Visa `4111 1111 1111 1111` | 03/30 | 737 |
+| Authorised — no 3DS | Mastercard `5555 5555 5555 4444` | 03/30 | 737 |
+| Authorised — no 3DS | Amex `3700 0000 0000 002` | 03/30 | 7373 |
 | 3DS2 challenge | Visa `4917 6100 0000 0000` | 03/30 | 737 |
 | 3DS2 challenge | Mastercard `5454 5454 5454 5454` | 03/30 | 737 |
 | Refused | Any card above, cardholder name: `DECLINED` | — | — |
 
-For 3DS challenge cards, type `password` when the OTP modal appears.
+For 3DS challenge cards, enter `password` when the OTP modal appears.
 
 ## Tests
 
@@ -119,6 +141,7 @@ cd backend && npm test
 
 Covers the webhook → order lifecycle mapping and idempotent handling of duplicate notifications.
 
-## Demo scope
+## Notes
 
-The order ledger is an in-memory `Map` — see [ARCHITECTURE.md](ARCHITECTURE.md#where-state-lives). Targets a single Adyen test merchant account. Save card requires tokenisation to be enabled on the merchant account (Customer Area → Account → Settings → Recurring).
+- **`ResultPage`** (`/result`) exists in the frontend but is not triggered in the current configuration because `returnUrl` is set to `https://www.adyen.com`. Redirect-based payments (iDEAL, Bancontact) land on Adyen's site after the bank flow.
+- The order ledger is an in-memory `Map` — see [ARCHITECTURE.md](ARCHITECTURE.md#where-state-lives).
