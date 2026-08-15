@@ -43,7 +43,7 @@ The shopper configures a country and amount in the settings panel, optionally en
 | `countryCode` | from request |
 | `shopperLocale` | from `COUNTRY_PRESETS[countryCode].shopperLocale` |
 | `reference` | `demo-<uuid>` generated per request |
-| `returnUrl` | `https://www.adyen.com` |
+| `returnUrl` | `${FRONTEND_URL}/result?reference=${reference}` |
 | `channel` | `Web` |
 | `storePaymentMethodMode` | `askForConsent` |
 | `recurringProcessingModel` | `CardOnFile` |
@@ -60,7 +60,7 @@ The browser initialises `AdyenCheckout({ session, clientKey, environment })` and
 
 **5. Result handling.**
 - **Card / inline methods**: `onPaymentCompleted` or `onPaymentFailed` fires with a `resultCode`. The app auto-returns to the store page after 2.5 seconds on success.
-- **Redirect methods (iDEAL, Bancontact, etc.)**: shopper is sent to their bank, then to `returnUrl` (`https://www.adyen.com`). `ResultPage` exists in the frontend at `/result` but is not triggered in the current configuration.
+- **Redirect methods (iDEAL, Bancontact, etc.)**: shopper is sent to their bank, then redirected back to `${FRONTEND_URL}/result?reference=...&sessionId=...`. `ResultPage` reads both params, resumes the Adyen session client-side to get a `resultCode`, then hands the `reference` to `OutcomePanel` which polls the backend for the webhook-confirmed status.
 
 **6. Webhook is the authoritative outcome.**
 Independently of the browser, Adyen calls `POST /api/webhooks/notifications` once the payment settles. The webhook updates the order record that `OutcomePanel` polls every 2 seconds via `GET /api/orders/:reference`. The panel shows both the client-side `resultCode` and the webhook-confirmed status side by side — the gap between them is the entire reason webhook-driven status exists.

@@ -49,7 +49,7 @@ sessionsRouter.post("/sessions", async (req, res) => {
         countryCode,
         shopperLocale: preset.shopperLocale,
         reference,
-        returnUrl: "https://www.adyen.com",
+        returnUrl: `${config.frontendUrl}/result?reference=${reference}`,
         channel: "Web",
         storePaymentMethodMode: "askForConsent",
         recurringProcessingModel: "CardOnFile",

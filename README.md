@@ -143,5 +143,5 @@ Covers the webhook → order lifecycle mapping and idempotent handling of duplic
 
 ## Notes
 
-- **`ResultPage`** (`/result`) exists in the frontend but is not triggered in the current configuration because `returnUrl` is set to `https://www.adyen.com`. Redirect-based payments (iDEAL, Bancontact) land on Adyen's site after the bank flow.
+- **`ResultPage`** (`/result`) handles the redirect return for iDEAL, Bancontact, and similar methods. After the shopper completes payment at their bank, Adyen redirects to `http://localhost:8080/result?reference=...&sessionId=...`. `ResultPage` resumes the session client-side and polls the backend for the webhook-confirmed status.
 - The order ledger is an in-memory `Map` — see [ARCHITECTURE.md](ARCHITECTURE.md#where-state-lives).
