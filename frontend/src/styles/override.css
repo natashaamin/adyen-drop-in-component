@@ -1,0 +1,50 @@
+/* ── Payment method list ───────────────────────────────────────────── */
+.adyen-checkout__payment-method {
+    border-radius: 10px;
+    margin-bottom: 8px;
+    border: 1px solid #e0e3e8;
+    transition: box-shadow 0.15s ease;
+}
+
+.adyen-checkout__payment-method:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.adyen-checkout__payment-method--selected {
+    border-color: #0070f5;
+    box-shadow: 0 0 0 1px #0070f5;
+}
+
+.adyen-checkout__payment-method__name {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+/* ── Input fields ──────────────────────────────────────────────────── */
+.adyen-checkout__input {
+    border-radius: 8px;
+    border-color: #c9cdd3;
+    font-size: 0.95rem;
+}
+
+.adyen-checkout__input--valid {
+    border-color: #0a7d3f;
+}
+
+.adyen-checkout__input--error {
+    border-color: #d1372e;
+}
+
+/* ── Labels ────────────────────────────────────────────────────────── */
+.adyen-checkout__label__text {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #00112c;
+}
+
+/* ── Pay button ────────────────────────────────────────────────────── */
+.adyen-checkout__button--pay {
+    border-radius: 8px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
