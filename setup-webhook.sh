@@ -6,7 +6,7 @@
 API_KEY='AQEyhmfxK4jPaxFLw0m/n3Q5qf3VaY9UCJ14XWZE03G/k2NFiqCZHgQcMi6EzAPbaTJPMfsQwV1bDb7kfNy1WIxIIkxgBw==-kiN9YufYOelQ5EjZTIFJXqEEY8JDFFRe80rJ62k5C80=-i1i:ZYyURy3sT98pv}v'
 MERCHANT='AdyenRecruitmentCOM'
 WEBHOOK_ID='WBHK4299322322C45PSRP5SGG336RC'
-TUNNEL_URL='https://nasa-inventory-pharmacy-variety.trycloudflare.com'
+TUNNEL_URL="${1:?Usage: $0 <tunnel-url>}"
 ENV_FILE="$(dirname "$0")/backend/.env"
 
 echo "Updating webhook URL to ${TUNNEL_URL}..."

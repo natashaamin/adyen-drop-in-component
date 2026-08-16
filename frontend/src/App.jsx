@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import ControlsPanel from "./components/ControlsPanel.jsx";
 import DropinContainer from "./components/DropinContainer.jsx";
 import OutcomePanel from "./components/OutcomePanel.jsx";
@@ -20,6 +20,49 @@ export default function App() {
     return <CheckoutDemo />;
 }
 
+function OrderResult({ event, formatted, onBack }) {
+    const resultCode = event?.result?.resultCode;
+    const isAuthorised = resultCode === "Authorised";
+    const isPending = resultCode === "Pending" || resultCode === "Received";
+    const variant = isAuthorised ? "success" : isPending ? "pending" : "failure";
+
+    return (
+        <div className="order-result">
+            <button className="back-link" onClick={onBack}>
+                ← Back to shop
+            </button>
+            <div className={`order-result-hero order-result-hero--${variant}`}>
+                <div className="order-result-icon">
+                    {isAuthorised ? "✓" : isPending ? "⏱" : "✕"}
+                </div>
+                <div>
+                    <h2 className="order-result-heading">
+                        {isAuthorised
+                            ? "Your order has been placed"
+                            : isPending
+                            ? "Payment is being processed"
+                            : "Payment was not completed"}
+                    </h2>
+                    <p className="order-result-subtext">
+                        {isAuthorised
+                            ? "Thank you! Your payment has been received."
+                            : isPending
+                            ? "We'll confirm your order once the payment settles."
+                            : `Result: ${resultCode ?? "unknown"}`}
+                    </p>
+                </div>
+            </div>
+
+            <div className="order-result-summary">
+                <span>Demo Product</span>
+                <span>{formatted}</span>
+            </div>
+
+            <OutcomePanel event={event} />
+        </div>
+    );
+}
+
 function CheckoutDemo() {
     const [countries, setCountries] = useState(null);
     const [countryCode, setCountryCode] = useState("NL");
@@ -32,14 +75,6 @@ function CheckoutDemo() {
     const [simulateRetry, setSimulateRetry] = useState(false);
     const [billingAddressRequired, setBillingAddressRequired] = useState(false);
     const [shopperEmail, setShopperEmail] = useState("");
-    const returnTimer = useRef(null);
-
-    useEffect(() => {
-        if (event?.type === "completed") {
-            returnTimer.current = setTimeout(() => setStarted(false), 2500);
-        }
-        return () => clearTimeout(returnTimer.current);
-    }, [event?.type]);
 
     useEffect(() => {
         api.getConfig()
@@ -133,6 +168,13 @@ function CheckoutDemo() {
                         </div>
                     </div>
                 </div>
+            ) : (event?.type === "completed" || event?.type === "failed") ? (
+                /* ── Order result page ── */
+                <OrderResult
+                    event={event}
+                    formatted={formatted}
+                    onBack={() => { setStarted(false); setEvent(null); }}
+                />
             ) : (
                 /* ── Checkout page ── */
                 <div className="checkout-page">
@@ -171,9 +213,8 @@ function CheckoutDemo() {
             <div className="behind-scenes">
                 <h2 className="behind-scenes-title">Behind the scenes</h2>
                 <p className="behind-scenes-subtitle">
-                    What the backend sees — order lifecycle driven by Adyen webhooks.
+                    All orders and their webhook-driven lifecycle transitions.
                 </p>
-                <OutcomePanel event={event} />
                 <OrdersPanel />
             </div>
         </main>

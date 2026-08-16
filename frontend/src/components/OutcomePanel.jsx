@@ -46,28 +46,44 @@ export default function OutcomePanel({ event }) {
         return () => clearInterval(pollTimer.current);
     }, [event?.reference]);
 
-    if (!event) return null;
+    if (!event || event.type === "session_created") return null;
 
     return (
         <div className="outcome-panel">
             <h2>Payment lifecycle</h2>
             <dl>
-                <dt>Merchant reference</dt>
+                <dt>Order reference</dt>
                 <dd>
                     <code>{event.reference}</code>
                 </dd>
 
-                <dt>Drop-in client-side event</dt>
+                <dt>Drop-in result (client-side)</dt>
                 <dd>{describeClientEvent(event)}</dd>
 
-                <dt>Backend order status (from webhook)</dt>
+                <dt>Webhook-confirmed status</dt>
                 <dd>
                     {order ? (
                         <span className={`status-pill status-pill--${order.status}`}>{order.status}</span>
                     ) : (
-                        <span className="status-pill status-pill--pending">waiting for webhook…</span>
+                        <span className="status-pill status-pill--pending">awaiting webhook…</span>
                     )}
                 </dd>
+
+                {order?.history?.length > 0 && (
+                    <>
+                        <dt>Lifecycle events</dt>
+                        <dd>
+                            <ol className="outcome-history">
+                                {order.history.map((h, i) => (
+                                    <li key={i}>
+                                        <span className={`status-pill status-pill--${h.status}`}>{h.status}</span>
+                                        <span className="outcome-history-source"> via {h.source}</span>
+                                    </li>
+                                ))}
+                            </ol>
+                        </dd>
+                    </>
+                )}
             </dl>
         </div>
     );
@@ -75,8 +91,6 @@ export default function OutcomePanel({ event }) {
 
 function describeClientEvent(event) {
     switch (event.type) {
-        case "session_created":
-            return "Session created, awaiting shopper input";
         case "completed":
             return `resultCode: ${event.result?.resultCode ?? "unknown"}`;
         case "failed":

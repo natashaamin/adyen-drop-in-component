@@ -662,6 +662,99 @@ header h1 {
     font-weight: 600;
 }
 
+/* Order result page */
+.order-result {
+    margin-top: 1.5rem;
+    max-width: 560px;
+}
+
+.order-result-hero {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.order-result-hero--success {
+    background: #e3f6e8;
+    border: 1px solid #a3d9b1;
+    color: #0a7d3f;
+}
+
+.order-result-hero--failure {
+    background: #fceceb;
+    border: 1px solid #f5b8b5;
+    color: #d1372e;
+}
+
+.order-result-hero--pending {
+    background: #fff6e0;
+    border: 1px solid #fbd38d;
+    color: #b45f00;
+}
+
+.order-result-icon {
+    font-size: 1.5rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.55);
+}
+
+.order-result-heading {
+    margin: 0 0 0.25rem;
+    font-size: 1.1rem;
+}
+
+.order-result-subtext {
+    margin: 0;
+    font-size: 0.9rem;
+    opacity: 0.85;
+}
+
+.order-result-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem 0;
+    border-top: 1px solid #dbdee2;
+    border-bottom: 1px solid #dbdee2;
+    margin: 1.25rem 0 0;
+    font-size: 0.95rem;
+}
+
+.order-result-summary span:last-child {
+    font-weight: 700;
+}
+
+/* Lifecycle history list inside OutcomePanel */
+.outcome-history {
+    margin: 0.35rem 0 0;
+    padding-left: 1.1rem;
+    font-size: 0.85rem;
+    line-height: 2;
+    list-style: none;
+    padding: 0;
+}
+
+.outcome-history li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.outcome-history-source {
+    color: #848d96;
+    font-size: 0.78rem;
+}
+
 .retry-demo {
     border-radius: 8px;
     padding: 0.9rem 1rem;

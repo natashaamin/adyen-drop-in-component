@@ -62,61 +62,24 @@ frontend/
 ## Prerequisites
 
 - Node.js 20+
-- An Adyen **test** merchant account, API key, and client key (Customer Area → Developers → API credentials)
-- Tokenisation enabled on the merchant account for save card to work (Customer Area → Account → Settings → Recurring)
-
-## Setup
-
-```bash
-cd backend && npm install
-cd ../frontend && npm install
-```
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-`backend/.env`:
-
-```
-ADYEN_API_KEY=...
-ADYEN_MERCHANT_ACCOUNT=...
-ADYEN_CLIENT_KEY=...
-ADYEN_ENVIRONMENT=TEST
-ADYEN_HMAC_KEY=...
-PORT=8081
-FRONTEND_URL=http://localhost:8080
-```
-
-`ADYEN_CLIENT_KEY` must have `http://localhost:8080` listed as an **Allowed origin** in the Customer Area.
+- [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) — used to expose your local backend so Adyen can deliver webhooks
+  - macOS: `brew install cloudflared`
 
 ## Running locally
 
 ```bash
-# terminal 1 — backend
-cd backend && npm run dev
-
-# terminal 2 — frontend
-cd frontend && npm run dev
+./dev.sh
 ```
 
-Open `http://localhost:8080`.
+That single command:
+1. Installs npm dependencies for both backend and frontend (skipped on subsequent runs)
+2. Starts a Cloudflare tunnel and captures its public URL
+3. Registers the tunnel URL as the Adyen webhook endpoint and writes a fresh HMAC key to `backend/.env`
+4. Starts the backend (`http://localhost:8081`) and frontend (`http://localhost:8080`)
 
-## Webhooks
+Open `http://localhost:8080`. Press `Ctrl+C` to stop everything.
 
-Adyen delivers webhook notifications server-to-server, so your backend needs a public URL:
-
-```bash
-cloudflared tunnel --url http://localhost:8081
-```
-
-Register the webhook and write the HMAC key into `backend/.env` automatically:
-
-```bash
-./setup-webhook.sh https://<your-tunnel-url>
-```
-
-Without a webhook the Drop-in completes payments end-to-end, but orders stay in `pending` — the webhook is what confirms the outcome and drives lifecycle transitions.
+> **Without webhooks** the Drop-in completes payments end-to-end, but orders stay in `pending` — the webhook is what confirms the outcome and drives lifecycle transitions.
 
 ## Test cards
 
