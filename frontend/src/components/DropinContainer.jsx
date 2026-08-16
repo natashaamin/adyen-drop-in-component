@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AdyenCheckout, Dropin, Card, Redirect, PayPal, GooglePay, ApplePay, Klarna, SepaDirectDebit, Giftcard, WeChat } from "@adyen/adyen-web";
+import { AdyenCheckout, Dropin } from "@adyen/adyen-web/auto";
 import "@adyen/adyen-web/styles/adyen.css";
 import "../styles/override.css";
 import { api } from "../lib/api.js";
@@ -9,14 +9,6 @@ const BRAND_LABELS = {
     visa: "Visa", mc: "Mastercard", amex: "American Express",
     discover: "Discover", maestro: "Maestro", cup: "UnionPay"
 };
-
-// All supported payment method components for Advanced flow.
-// The Drop-in only renders the ones that match paymentMethodsResponse —
-// extras are ignored. Sessions flow does not use this list.
-const ADVANCED_FLOW_COMPONENTS = [
-    Card, Redirect, PayPal, GooglePay, ApplePay,
-    Klarna, SepaDirectDebit, Giftcard, WeChat
-];
 
 
 export default function DropinContainer({
@@ -46,18 +38,12 @@ export default function DropinContainer({
                 // clickToPayConfiguration.locale uses underscore (en_US), AdyenCheckout uses hyphen (en-US)
                 let ctpLocale = "en_US";
                 let shopperEmailForCtp;
-                // Advanced flow: pass all supported components — Drop-in only renders
-                // those matching paymentMethodsResponse, extras are ignored.
-                // Sessions flow: null — the Drop-in resolves the list from sessionData.
-                let resolvedComponents = null;
 
                 if (flow === "advanced") {
                     // ── Advanced flow ────────────────────────────────────────────────
                     // Step 1: fetch payment methods and mint the order reference
                     const pmData = await api.getPaymentMethods({ countryCode, amountValue, shopperEmail });
                     if (cancelled) return;
-
-                    resolvedComponents = ADVANCED_FLOW_COMPONENTS;
 
                     reference = pmData.reference;
                     ctpLocale = pmData.shopperLocale?.replace("-", "_") ?? "en_US";
@@ -154,7 +140,6 @@ export default function DropinContainer({
 
                 const dropin = new Dropin(checkout, {
                     openFirstPaymentMethod: openFirst,
-                    ...(resolvedComponents && { paymentMethodComponents: resolvedComponents }),
                     paymentMethodsConfiguration: {
                         card: {
                             hasHolderName: true,
