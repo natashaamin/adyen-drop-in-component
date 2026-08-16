@@ -12,7 +12,7 @@ const BRAND_LABELS = {
 
 export default function DropinContainer({
     countryCode, amountValue, themeKey, openFirst, simulateRetry,
-    shopperEmail, billingAddressRequired, onOutcome
+    shopperEmail, billingAddressRequired, flow, onOutcome
 }) {
     const mountRef = useRef(null);
     const dropinRef = useRef(null);
@@ -32,43 +32,112 @@ export default function DropinContainer({
 
         (async () => {
             try {
-                const session = await api.createSession({ countryCode, amountValue, simulateRetry, shopperEmail });
-                if (session.retryDemo) setRetryDemo(session.retryDemo);
-                if (cancelled) return;
-
-                onOutcome({ type: "session_created", reference: session.reference });
-
+                let checkout;
+                let reference;
                 // clickToPayConfiguration.locale uses underscore (en_US), AdyenCheckout uses hyphen (en-US)
-                const ctpLocale = session.shopperLocale?.replace("-", "_") ?? "en_US";
+                let ctpLocale = "en_US";
+                let shopperEmailForCtp;
 
-                const checkout = await AdyenCheckout({
-                    environment: session.environment,
-                    clientKey: session.clientKey,
-                    session: {
-                        id: session.sessionId,
-                        sessionData: session.sessionData,
-                        shopperEmail: session.shopperEmail
-                    },
-                    countryCode,
-                    beforeSubmit: (data, _component, actions) => {
-                        if (submittedRef.current) { actions.reject(); return; }
-                        submittedRef.current = true;
-                        actions.resolve(data);
-                    },
-                    onPaymentCompleted: (result) => {
-                        onOutcome({ type: "completed", reference: session.reference, result });
-                    },
-                    onPaymentFailed: (result) => {
-                        onOutcome({ type: "failed", reference: session.reference, result });
-                    },
-                    onError: (error) => {
-                        console.error("[dropin] onError", error);
-                        onOutcome({ type: "error", reference: session.reference, error });
-                    }
-                });
+                if (flow === "advanced") {
+                    // ── Advanced flow ────────────────────────────────────────────────
+                    // Step 1: fetch payment methods and mint the order reference
+                    const pmData = await api.getPaymentMethods({ countryCode, amountValue, shopperEmail });
+                    if (cancelled) return;
+
+                    reference = pmData.reference;
+                    ctpLocale = pmData.shopperLocale?.replace("-", "_") ?? "en_US";
+                    shopperEmailForCtp = shopperEmail;
+                    onOutcome({ type: "session_created", reference });
+
+                    checkout = await AdyenCheckout({
+                        environment: pmData.environment,
+                        clientKey: pmData.clientKey,
+                        paymentMethodsResponse: pmData.paymentMethodsResponse,
+                        countryCode,
+                        amount: pmData.amount,
+                        // Step 2: shopper submits → forward encrypted data to /payments
+                        onSubmit: async (state, _component, actions) => {
+                            if (submittedRef.current) { actions.reject(); return; }
+                            submittedRef.current = true;
+                            try {
+                                const result = await api.submitPayment({
+                                    ...state.data,
+                                    reference,
+                                    countryCode,
+                                    amountValue,
+                                    shopperEmail,
+                                    returnUrl: `${window.location.origin}/result?reference=${reference}`
+                                });
+                                // Passing the result back to the SDK — if result.action is present
+                                // (e.g. 3DS challenge) the SDK handles it and fires onAdditionalDetails.
+                                actions.resolve(result);
+                            } catch (err) {
+                                actions.reject();
+                                onOutcome({ type: "error", reference, error: err });
+                            }
+                        },
+                        // Step 3: additional details after 3DS or redirect → forward to /payments/details
+                        onAdditionalDetails: async (state, _component, actions) => {
+                            try {
+                                const result = await api.submitDetails(state.data);
+                                actions.resolve(result);
+                            } catch (err) {
+                                actions.reject();
+                                onOutcome({ type: "error", reference, error: err });
+                            }
+                        },
+                        onPaymentCompleted: (result) => {
+                            onOutcome({ type: "completed", reference, result });
+                        },
+                        onPaymentFailed: (result) => {
+                            onOutcome({ type: "failed", reference, result });
+                        },
+                        onError: (error) => {
+                            console.error("[dropin] onError", error);
+                            onOutcome({ type: "error", reference, error });
+                        }
+                    });
+                } else {
+                    // ── Sessions flow (default) ──────────────────────────────────────
+                    const session = await api.createSession({ countryCode, amountValue, simulateRetry, shopperEmail });
+                    if (session.retryDemo) setRetryDemo(session.retryDemo);
+                    if (cancelled) return;
+
+                    reference = session.reference;
+                    ctpLocale = session.shopperLocale?.replace("-", "_") ?? "en_US";
+                    shopperEmailForCtp = session.shopperEmail;
+                    onOutcome({ type: "session_created", reference });
+
+                    checkout = await AdyenCheckout({
+                        environment: session.environment,
+                        clientKey: session.clientKey,
+                        session: {
+                            id: session.sessionId,
+                            sessionData: session.sessionData,
+                            shopperEmail: session.shopperEmail
+                        },
+                        countryCode,
+                        beforeSubmit: (data, _component, actions) => {
+                            if (submittedRef.current) { actions.reject(); return; }
+                            submittedRef.current = true;
+                            actions.resolve(data);
+                        },
+                        onPaymentCompleted: (result) => {
+                            onOutcome({ type: "completed", reference, result });
+                        },
+                        onPaymentFailed: (result) => {
+                            onOutcome({ type: "failed", reference, result });
+                        },
+                        onError: (error) => {
+                            console.error("[dropin] onError", error);
+                            onOutcome({ type: "error", reference, error });
+                        }
+                    });
+                }
 
                 if (cancelled) return;
 
+                // Dropin component config is identical for both flows
                 const dropin = new Dropin(checkout, {
                     openFirstPaymentMethod: openFirst,
                     paymentMethodComponents: [Card, Redirect, PayPal, GooglePay, ApplePay],
@@ -86,8 +155,8 @@ export default function DropinContainer({
                                     supports3DS: data.brands?.[0]?.supported3DS ?? null
                                 });
                             },
-                            clickToPayConfiguration: session.shopperEmail ? {
-                                shopperEmail: session.shopperEmail,
+                            clickToPayConfiguration: shopperEmailForCtp ? {
+                                shopperEmail: shopperEmailForCtp,
                                 merchantDisplayName: "Adyen Drop-in Demo",
                                 locale: ctpLocale,
                                 disableOtpAutoFocus: false,

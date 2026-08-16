@@ -23,32 +23,46 @@ export default function ResultPage() {
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const reference = params.get("reference");
-        const sessionId = params.get("sessionId");
+        const sessionId = params.get("sessionId");           // Sessions flow
+        const redirectResult = params.get("redirectResult"); // both flows
 
         if (!reference) return;
-        setEvent({ type: "session_created", reference });
 
-        if (!sessionId) return;
+        // "resolving" lets OutcomePanel render immediately and start polling,
+        // so the shopper sees the webhook-confirmed status as soon as it arrives
+        // even before the client-side result is known.
+        setEvent({ type: "resolving", reference });
 
         (async () => {
             try {
-                const { clientKey, environment } = await api.getConfig();
-                await AdyenCheckout({
-                    environment,
-                    clientKey,
-                    session: { id: sessionId },
-                    onPaymentCompleted: (result) => {
-                        setEvent({ type: "completed", reference, result });
-                    },
-                    onPaymentFailed: (result) => {
-                        setEvent({ type: "failed", reference, result });
-                    },
-                    onError: (error) => {
-                        console.error("[result] session resume error", error);
-                    }
-                });
+                if (redirectResult && !sessionId) {
+                    // Advanced flow — submit redirect details directly to our backend
+                    const result = await api.submitDetails({ details: { redirectResult } });
+                    const isSuccess = ["Authorised", "Pending", "Received"].includes(result.resultCode);
+                    setEvent({ type: isSuccess ? "completed" : "failed", reference, result });
+                } else if (sessionId) {
+                    // Sessions flow — let the SDK resume the session; it reads redirectResult
+                    // from the URL automatically and fires onPaymentCompleted / onPaymentFailed
+                    const { clientKey, environment } = await api.getConfig();
+                    await AdyenCheckout({
+                        environment,
+                        clientKey,
+                        session: { id: sessionId },
+                        onPaymentCompleted: (result) => {
+                            setEvent({ type: "completed", reference, result });
+                        },
+                        onPaymentFailed: (result) => {
+                            setEvent({ type: "failed", reference, result });
+                        },
+                        onError: (error) => {
+                            console.error("[result] session resume error", error);
+                            // Leave event as "resolving" — OutcomePanel will still
+                            // show the webhook-confirmed status via polling.
+                        }
+                    });
+                }
             } catch (error) {
-                console.error("[result] failed to resume session", error);
+                console.error("[result] failed to process redirect result", error);
             }
         })();
     }, []);

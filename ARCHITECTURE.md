@@ -1,8 +1,10 @@
 # Architecture
 
-A demo of the [Adyen Drop-in](https://www.npmjs.com/package/@adyen/adyen-web) **Sessions flow**: React frontend, Node.js/Express backend, Adyen as the payment processor.
+A demo of the [Adyen Drop-in](https://www.npmjs.com/package/@adyen/adyen-web) supporting two integration flows — **Sessions** and **Advanced** — switchable at runtime via the settings panel. React frontend, Node.js/Express backend, Adyen as the payment processor.
 
 ## System overview
+
+### Sessions flow
 
 ```
 ┌──────────────────────┐      ┌────────────────────┐      ┌───────────────┐
@@ -27,13 +29,64 @@ A demo of the [Adyen Drop-in](https://www.npmjs.com/package/@adyen/adyen-web) **
            ├───────────────────────────>│                          │
 ```
 
+### Advanced flow
+
+```
+┌──────────────────────┐      ┌────────────────────┐      ┌───────────────┐
+│       Browser        │      │   Node/Express      │      │  Adyen APIs   │
+│  (React + Drop-in)   │      │     backend         │      │  (test/live)  │
+└──────────┬───────────┘      └─────────┬───────────┘      └──────┬────────┘
+           │  1. POST /api/payment-methods                         │
+           ├───────────────────────────>│                          │
+           │                            │  2. POST /paymentMethods │
+           │                            ├─────────────────────────>│
+           │                            │<─────────────────────────┤
+           │  3. paymentMethodsResponse │                          │
+           │<───────────────────────────┤                          │
+           │  4. Drop-in renders — onSubmit fires with card data   │
+           │  5. POST /api/payments     │                          │
+           ├───────────────────────────>│                          │
+           │                            │  6. POST /payments       │
+           │                            ├─────────────────────────>│
+           │                            │  7. resultCode / action  │
+           │                            │<─────────────────────────┤
+           │  8. resultCode / action    │                          │
+           │<───────────────────────────┤                          │
+           │  (if action — 3DS or redirect handled by SDK)         │
+           │  9. POST /api/payments/details (after challenge)      │
+           ├───────────────────────────>│                          │
+           │                            │  10. POST /payments/details
+           │                            ├─────────────────────────>│
+           │                            │<─────────────────────────┤
+           │  11. final resultCode      │                          │
+           │<───────────────────────────┤                          │
+           │                            │  12. webhook (authoritative)
+           │                            │<─────────────────────────┤
+           │  13. poll GET /api/orders  │                          │
+           ├───────────────────────────>│                          │
+```
+
+## Choosing a flow
+
+| | Sessions | Advanced |
+|---|---|---|
+| Backend calls | 1 (`/sessions`) | 3 (`/paymentMethods`, `/payments`, `/payments/details`) |
+| Who talks to Adyen `/payments` | Adyen SDK internally | Your backend |
+| Idempotency demo | Available | Not shown |
+| Custom pre-auth logic | Not possible | Possible (between steps 5 and 6) |
+| Partial / split payments | Not supported | Supported |
+
+The toggle in the settings panel remounts `DropinContainer` with the selected flow. Both flows share the same Dropin component configuration, webhook handler, order store, and result page.
+
 ## End-to-end payment flow
 
+### Sessions flow
+
 **1. Start a session.**
-The shopper configures a country and amount in the settings panel, optionally enters their email on the store page, and clicks **Proceed to checkout**. `DropinContainer` mounts and posts to `POST /api/sessions`. No session is created for shoppers who abandon before clicking.
+The shopper configures a country and amount, optionally enters their email, and clicks **Proceed to checkout**. `DropinContainer` mounts and posts to `POST /api/sessions`.
 
 **2. Backend creates the Adyen session.**
-`sessions.js` holds the private API key and calls Adyen's `/sessions` with:
+`sessions.js` calls Adyen's `/sessions` with:
 
 | Field | Value |
 |---|---|
@@ -50,19 +103,36 @@ The shopper configures a country and amount in the settings panel, optionally en
 | `shopperReference` | `shopperEmail` if provided, else `demo-shopper-001` |
 | `shopperEmail` | included when provided (enables Click to Pay) |
 
-Adyen resolves which payment methods are eligible for that combination and returns an encrypted `sessionData` blob.
-
 **3. Backend opens an order record.**
-A `pending` order is created in `orderStore.js` keyed by `reference` before the response is sent.
+A `pending` order is created in `orderStore.js` keyed by `reference`.
 
 **4. Drop-in renders and submits.**
-The browser initialises `AdyenCheckout({ session, clientKey, environment })` and mounts `Dropin`. From this point the Drop-in talks to Adyen directly via the public `clientKey` — it fetches localised payment method UI, tokenises card data client-side, and submits the payment without the backend touching cardholder data.
+The browser initialises `AdyenCheckout({ session, clientKey, environment })` and mounts `Dropin`. The Drop-in talks to Adyen directly via the public `clientKey` — it fetches localised payment method UI, tokenises card data client-side, and submits the payment without the backend touching cardholder data.
 
-**5. Result handling.**
-- **Card / inline methods**: `onPaymentCompleted` or `onPaymentFailed` fires with a `resultCode`. The app auto-returns to the store page after 2.5 seconds on success.
-- **Redirect methods (iDEAL, Bancontact, etc.)**: shopper is sent to their bank, then redirected back to `${FRONTEND_URL}/result?reference=...&sessionId=...`. `ResultPage` reads both params, resumes the Adyen session client-side to get a `resultCode`, then hands the `reference` to `OutcomePanel` which polls the backend for the webhook-confirmed status.
+### Advanced flow
 
-**6. Webhook is the authoritative outcome.**
+**1. Fetch payment methods.**
+`DropinContainer` posts to `POST /api/payment-methods`. The backend mints the merchant reference, creates the order record, and calls Adyen's `/paymentMethods`. The response (available payment methods for the country/amount) is returned to the browser along with the reference.
+
+**2. Drop-in renders.**
+`AdyenCheckout` is initialised with `paymentMethodsResponse` instead of a session. The Dropin mounts with the same component configuration as the Sessions flow.
+
+**3. Shopper submits — `onSubmit` fires.**
+The Drop-in calls `onSubmit` with encrypted payment data. The frontend forwards it to `POST /api/payments`, which calls Adyen's `/payments`. The response is passed back to the SDK via `actions.resolve(result)`.
+
+**4. Additional details (3DS / redirect).**
+If the result contains an `action`, the SDK handles the 3DS challenge or redirect automatically. Once resolved, `onAdditionalDetails` fires. The frontend posts `state.data` to `POST /api/payments/details`, which calls Adyen's `/payments/details`. The final `resultCode` is passed back via `actions.resolve(result)`.
+
+**5. Final result.**
+`onPaymentCompleted` or `onPaymentFailed` fires with the definitive client-side result.
+
+### Result handling (both flows)
+
+- **Card / inline methods**: `onPaymentCompleted` or `onPaymentFailed` fires inline. The app auto-returns to the store after 2.5 seconds on success.
+- **Redirect methods (iDEAL, Bancontact, Alipay, etc.)**: The shopper is sent to their bank or wallet, then redirected back to `${FRONTEND_URL}/result?reference=...`. `ResultPage` immediately starts polling the backend for the webhook-confirmed status, so the order outcome is visible as soon as the webhook arrives.
+
+### Webhook is the authoritative outcome (both flows)
+
 Independently of the browser, Adyen calls `POST /api/webhooks/notifications` once the payment settles. The webhook updates the order record that `OutcomePanel` polls every 2 seconds via `GET /api/orders/:reference`. The panel shows both the client-side `resultCode` and the webhook-confirmed status side by side — the gap between them is the entire reason webhook-driven status exists.
 
 ## Security boundary
@@ -74,11 +144,13 @@ Independently of the browser, Adyen calls `POST /api/webhooks/notifications` onc
 | Which payment methods to show | Adyen, based on `countryCode` / `amount` / `shopperLocale` — zero payment-method logic in this codebase |
 | Confirming a payment succeeded | Backend only, via HMAC-verified webhook — never trusted from the browser |
 | CORS | `server.js` restricts `Access-Control-Allow-Origin` to `FRONTEND_URL` |
-| `clientKey` scope | Restricted to the frontend origin via Adyen's "Allowed origins" in the Customer Area — cannot be used from a different origin or from a server |
+| `clientKey` scope | Restricted to the frontend origin via Adyen's "Allowed origins" in the Customer Area |
 
 ## Where state lives
 
 `backend/src/services/orderStore.js` is an in-memory `Map` keyed by `merchantReference`. Its interface (`createOrder` / `applyWebhookEvent` / `getOrder`) is shaped to be swappable for a real database without touching the routes. In production this would be a database row — the in-memory store loses all pending orders on restart.
+
+`COUNTRY_PRESETS` lives in `sessions.js` and is imported by `payments.js` so both flows share the same country-to-currency/locale mapping.
 
 ## Payment lifecycle
 
@@ -92,11 +164,11 @@ pending ──AUTHORISATION(true)──> authorised ──CAPTURE(true)──> c
    └──EXPIRE──────────────────> expired
 ```
 
-Every transition is appended to `order.history` (not overwritten), so the full event trail — including failed captures or later chargebacks — is inspectable in the "Recent orders" panel.
+Every transition is appended to `order.history` (not overwritten), so the full event trail is inspectable in the "Recent orders" panel.
 
 ## Card configuration
 
-The card payment method is configured beyond the Drop-in defaults:
+The card payment method is configured beyond the Drop-in defaults, and is identical across both flows:
 
 | Option | Value | Purpose |
 |---|---|---|
@@ -108,7 +180,9 @@ The card payment method is configured beyond the Drop-in defaults:
 
 ## Save card (tokenisation)
 
-Passing `storePaymentMethodMode: "askForConsent"` in the session causes the Drop-in to render a save card checkbox. The shopper opts in explicitly. Combined with `recurringProcessingModel: "CardOnFile"` and a `shopperReference`, Adyen stores the tokenised card against that shopper identity on authorisation.
+Passing `storePaymentMethodMode: "askForConsent"` causes the Drop-in to render a save card checkbox. Combined with `recurringProcessingModel: "CardOnFile"` and a `shopperReference`, Adyen stores the tokenised card against that shopper identity on authorisation.
+
+In the Sessions flow this is set on the session params. In the Advanced flow it is set on the `/payments` call. Both routes use the same values.
 
 This requires tokenisation to be enabled on the merchant account in the Customer Area (Account → Settings → Recurring). Without it the session creation returns error 702.
 
@@ -116,34 +190,32 @@ This requires tokenisation to be enabled on the merchant account in the Customer
 
 When the shopper enters an email on the store page, it flows through three levels:
 
-1. **Backend → Adyen `/sessions`** (`shopperEmail` field) — triggers Visa/Mastercard SRC recognition lookup.
-2. **`AdyenCheckout` session object** (`session.shopperEmail`) — tells the Drop-in a recognised shopper may be present.
-3. **`clickToPayConfiguration`** (`shopperEmail`, `locale` as `en_US`) — activates the Click to Pay UI inside the card form.
+1. **Backend** — `shopperEmail` is included in the `/sessions` or `/paymentMethods` call, triggering Visa/Mastercard SRC recognition lookup.
+2. **`AdyenCheckout`** — for Sessions flow, `session.shopperEmail` tells the Drop-in a recognised shopper may be present.
+3. **`clickToPayConfiguration`** — `shopperEmail` and `locale` (as `en_US`) activate the Click to Pay UI inside the card form.
 
 `clickToPayConfiguration.locale` uses underscore format (`en_US`), while `AdyenCheckout` uses hyphen (`en-US`). The code normalises with `.replace("-", "_")`.
 
-If no email is provided, `clickToPayConfiguration` is omitted and the card form behaves normally.
-
 ## Idempotency
 
-**API-level — session creation.**
-Each call to `POST /api/sessions` uses the generated `reference` as the `Idempotency-Key` header sent to Adyen. The "Simulate network retry" toggle in the settings panel calls `/sessions` twice with the same key. The response panel shows both returned session IDs — they are always identical, proving Adyen cannot create a duplicate session on a retry.
+**API-level — session creation (Sessions flow).**
+Each call to `POST /api/sessions` uses the generated `reference` as the `Idempotency-Key` header sent to Adyen. The "Simulate network retry" toggle calls `/sessions` twice with the same key. The response panel shows both returned session IDs — they are always identical, proving Adyen cannot create a duplicate session on a retry. This demo is hidden when the Advanced flow is selected.
 
 **Webhook-level — duplicate delivery.**
-Adyen delivers webhooks at-least-once and retries with backoff for up to ~24 hours. `backend/src/services/idempotencyStore.js` derives a key from `(eventCode, pspReference, success)` and skips re-applying a transition already seen. Processed keys are stored with a timestamp and swept after 24 hours. The endpoint still responds `[accepted]` for duplicates so Adyen stops retrying.
+Adyen delivers webhooks at-least-once and retries with backoff for up to ~24 hours. `idempotencyStore.js` derives a key from `(eventCode, pspReference, success)` and skips re-applying a transition already seen. Processed keys are stored with a timestamp and swept after 24 hours.
 
 **Frontend — double submission.**
-`DropinContainer` holds a `submittedRef` flag set to `true` in `beforeSubmit` the first time the shopper confirms payment. Any subsequent call within the same session calls `actions.reject()` immediately, preventing a duplicate `/payments` request from a double-tap or re-render race. The flag resets on component unmount (country or amount change triggers a remount).
+`DropinContainer` holds a `submittedRef` flag set in `beforeSubmit` (Sessions) or `onSubmit` (Advanced) the first time the shopper confirms payment. Any subsequent call calls `actions.reject()` immediately. The flag resets on component unmount.
 
 ## Webhook reliability
 
-- **HMAC verification** — `hmacValidator.validateHMAC(item, ADYEN_HMAC_KEY)` is called per notification item. A failed signature rejects the whole batch with `401` rather than partially trusting the payload. If `ADYEN_HMAC_KEY` is not set, processing continues with a warning (local development only).
-- **Fast acknowledgement** — `[accepted]` is returned as soon as in-memory processing finishes. A production deployment would ack first and hand items to a queue/worker so a slow downstream (database, email, fulfilment) cannot blow Adyen's response-time budget and trigger avoidable retries.
+- **HMAC verification** — `hmacValidator.validateHMAC(item, ADYEN_HMAC_KEY)` is called per notification item. A failed signature rejects the whole batch with `401`. If `ADYEN_HMAC_KEY` is not set, processing continues with a warning (local development only).
+- **Fast acknowledgement** — `[accepted]` is returned as soon as in-memory processing finishes. A production deployment would ack first and hand items to a queue/worker so a slow downstream cannot blow Adyen's response-time budget.
 - **Unknown references ignored** — notifications for a `merchantReference` not in the order store are logged and skipped, then acknowledged so Adyen stops retrying.
 
 ## Global scaling
 
-`COUNTRY_PRESETS` in `sessions.js` is the only country-specific code in the entire codebase:
+`COUNTRY_PRESETS` in `sessions.js` (shared with `payments.js`) is the only country-specific code in the entire codebase:
 
 ```js
 NL: { currency: "EUR", shopperLocale: "nl-NL", label: "Netherlands" },
@@ -157,19 +229,19 @@ JP: { currency: "JPY", shopperLocale: "ja-JP", label: "Japan" },
 AU: { currency: "AUD", shopperLocale: "en-AU", label: "Australia" },
 ```
 
-- **Adding a country** — one line in `COUNTRY_PRESETS`. If the merchant account has a local payment method enabled for that market (e.g. PIX for Brazil), it appears in the Drop-in automatically on the next session.
-- **Multi-currency** — `amount.currency` changes per country; the Drop-in renders the correct currency because Adyen echoes it in the session response.
+- **Adding a country** — one line in `COUNTRY_PRESETS`. If the merchant account has a local payment method enabled for that market (e.g. PIX for Brazil), it appears in the Drop-in automatically.
+- **Multi-currency** — `amount.currency` changes per country; the Drop-in renders the correct currency because Adyen echoes it in the session/payment response.
 - **Localisation** — `shopperLocale` drives the Drop-in's UI language with no hardcoded strings in this codebase.
-- **Horizontal scaling** — the backend holds no per-request in-process state beyond the order ledger. Moving the ledger to a shared database makes the service safe to run behind a load balancer — a webhook can land on any replica and still update the correct order.
-- **Multiple merchant accounts** — resolving `merchantAccount` from `countryCode` in `sessions.js` instead of using a single config value is all that is needed for per-region account separation.
+- **Horizontal scaling** — the backend holds no per-request in-process state beyond the order ledger. Moving the ledger to a shared database makes the service safe to run behind a load balancer.
+- **Multiple merchant accounts** — resolving `merchantAccount` from `countryCode` in the route files instead of a single config value is all that is needed for per-region account separation.
 
 ## Frontend theming
 
 `frontend/src/lib/themes.js` defines five themes (default, black, blue, purple, green). Switching themes calls `applyTheme(domNode, themeKey)` which sets Adyen's public CSS custom properties on the Drop-in's mount node:
 
 ```
---adyen-sdk-color-background-always-dark        (pay button fill)
---adyen-sdk-color-background-always-dark-active (pay button active)
+--adyen-sdk-color-background-always-dark
+--adyen-sdk-color-background-always-dark-active
 --adyen-sdk-color-background-inverse-primary-hover
 --adyen-sdk-color-label-primary
 --adyen-sdk-color-outline-primary-active

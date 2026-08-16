@@ -57,8 +57,12 @@ export default function OutcomePanel({ event }) {
                     <code>{event.reference}</code>
                 </dd>
 
-                <dt>Drop-in result (client-side)</dt>
-                <dd>{describeClientEvent(event)}</dd>
+                {event.type !== "resolving" && (
+                    <>
+                        <dt>Drop-in result (client-side)</dt>
+                        <dd>{describeClientEvent(event)}</dd>
+                    </>
+                )}
 
                 <dt>Webhook-confirmed status</dt>
                 <dd>

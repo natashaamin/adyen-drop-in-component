@@ -75,6 +75,7 @@ function CheckoutDemo() {
     const [simulateRetry, setSimulateRetry] = useState(false);
     const [billingAddressRequired, setBillingAddressRequired] = useState(false);
     const [shopperEmail, setShopperEmail] = useState("");
+    const [flow, setFlow] = useState("sessions");
 
     useEffect(() => {
         api.getConfig()
@@ -109,7 +110,7 @@ function CheckoutDemo() {
         <main className="app-shell">
             <header>
                 <h1>Adyen Drop-in Demo</h1>
-                <p className="subtitle">React · Node.js · Adyen Sessions flow</p>
+                <p className="subtitle">React · Node.js · Adyen {flow === "advanced" ? "Advanced" : "Sessions"} flow</p>
             </header>
 
             {!started ? (
@@ -129,6 +130,8 @@ function CheckoutDemo() {
                         onSimulateRetryChange={setSimulateRetry}
                         billingAddressRequired={billingAddressRequired}
                         onBillingAddressRequiredChange={setBillingAddressRequired}
+                        flow={flow}
+                        onFlowChange={setFlow}
                     />
 
                     <div>
@@ -194,7 +197,7 @@ function CheckoutDemo() {
                         </p>
                     )}
                     <DropinContainer
-                        key={`${countryCode}-${amountValue}`}
+                        key={`${countryCode}-${amountValue}-${flow}`}
                         countryCode={countryCode}
                         amountValue={amountValue}
                         themeKey={themeKey}
@@ -202,6 +205,7 @@ function CheckoutDemo() {
                         simulateRetry={simulateRetry}
                         shopperEmail={shopperEmail || undefined}
                         billingAddressRequired={billingAddressRequired}
+                        flow={flow}
                         onOutcome={setEvent}
                     />
                 </div>

@@ -14,8 +14,19 @@ async function request(path, options) {
 
 export const api = {
     getConfig: () => request("/config"),
+
+    // Sessions flow
     createSession: (payload) =>
         request("/sessions", { method: "POST", body: JSON.stringify(payload) }),
+
+    // Advanced flow
+    getPaymentMethods: (payload) =>
+        request("/payment-methods", { method: "POST", body: JSON.stringify(payload) }),
+    submitPayment: (payload) =>
+        request("/payments", { method: "POST", body: JSON.stringify(payload) }),
+    submitDetails: (payload) =>
+        request("/payments/details", { method: "POST", body: JSON.stringify(payload) }),
+
     getOrder: (reference) => request(`/orders/${encodeURIComponent(reference)}`),
     listOrders: () => request("/orders"),
     replayWebhook: (reference) =>

@@ -1,6 +1,6 @@
 # adyen-drop-in-component
 
-A full-stack demo of the [Adyen Drop-in](https://www.npmjs.com/package/@adyen/adyen-web) (v6) using the **Sessions flow**: React frontend, Node.js/Express backend.
+A full-stack demo of the [Adyen Drop-in](https://www.npmjs.com/package/@adyen/adyen-web) (v6) using React, Node.js/Express, and Adyen test credentials. Supports both the **Sessions flow** and the **Advanced flow**, switchable at runtime without restarting.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the system design, payment lifecycle, reliability, and scaling notes.
 
@@ -15,7 +15,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the system design, payment lifecycle,
 - Click to Pay — enter a shopper email and Visa/Mastercard silently recognise returning shoppers via SRC
 
 **Developer demos**
-- Simulate network retry — calls `/sessions` twice with the same idempotency key and shows both session IDs side by side, proving Adyen returns the same one
+- Switch between Sessions flow and Advanced flow without restarting
+- Simulate network retry — calls `/sessions` twice with the same idempotency key and shows both session IDs side by side, proving Adyen returns the same one (Sessions flow only)
 - Webhook-driven order lifecycle — `OutcomePanel` shows the Drop-in's client-side `resultCode` alongside the backend's webhook-confirmed status, deliberately side by side so the gap is visible
 - Recent orders table — click any row to expand the full event history
 
@@ -33,7 +34,8 @@ backend/
     config.js                  env vars
     server.js                  Express app, CORS, routes
     routes/
-      sessions.js              POST /api/sessions, GET /api/config
+      sessions.js              POST /api/sessions, GET /api/config, COUNTRY_PRESETS
+      payments.js              POST /api/payment-methods, /payments, /payments/details
       webhooks.js              POST /api/webhooks/notifications
       orders.js                GET /api/orders, GET /api/orders/:ref
     services/
@@ -45,12 +47,12 @@ frontend/
   src/
     App.jsx                    store page + checkout page routing
     components/
-      ControlsPanel.jsx        country, amount, theme, toggles
-      DropinContainer.jsx      AdyenCheckout + Dropin lifecycle
+      ControlsPanel.jsx        country, amount, theme, flow toggle
+      DropinContainer.jsx      AdyenCheckout + Dropin lifecycle (Sessions & Advanced)
       OutcomePanel.jsx         resultCode vs webhook status
       OrdersPanel.jsx          recent orders table with history
       TestCardsPanel.jsx       floating test card bubble
-      ResultPage.jsx           /result route (not active — see note below)
+      ResultPage.jsx           /result route (redirect-based payment methods)
     lib/
       api.js                   frontend → backend fetch helpers
       themes.js                CSS custom property themes
@@ -62,7 +64,7 @@ frontend/
 ## Prerequisites
 
 - Node.js 20+
-- [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) — used to expose your local backend so Adyen can deliver webhooks
+- [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) — exposes your local backend so Adyen can deliver webhooks
   - macOS: `brew install cloudflared`
 
 ## Running locally
@@ -80,6 +82,19 @@ That single command:
 Open `http://localhost:8080`. Press `Ctrl+C` to stop everything.
 
 > **Without webhooks** the Drop-in completes payments end-to-end, but orders stay in `pending` — the webhook is what confirms the outcome and drives lifecycle transitions.
+
+## Integration flows
+
+The **Integration flow** toggle in the settings panel switches between two modes at runtime:
+
+| | Sessions | Advanced |
+|---|---|---|
+| Backend endpoint | `POST /api/sessions` | `POST /api/payment-methods` → `POST /api/payments` → `POST /api/payments/details` |
+| Frontend config | `session: { id, sessionData }` | `paymentMethodsResponse` + `onSubmit` + `onAdditionalDetails` |
+| Who calls Adyen `/payments` | Adyen SDK internally | Your backend |
+| Idempotency retry demo | Available | Not shown |
+
+Use **Sessions** for simplicity. Use **Advanced** to see how each step (payment method list, authorisation, 3DS/redirect resolution) maps to a separate backend call.
 
 ## Test cards
 
@@ -106,5 +121,5 @@ Covers the webhook → order lifecycle mapping and idempotent handling of duplic
 
 ## Notes
 
-- **`ResultPage`** (`/result`) handles the redirect return for iDEAL, Bancontact, and similar methods. After the shopper completes payment at their bank, Adyen redirects to `http://localhost:8080/result?reference=...&sessionId=...`. `ResultPage` resumes the session client-side and polls the backend for the webhook-confirmed status.
+- **`ResultPage`** (`/result`) handles redirect-based methods (iDEAL, Bancontact, Alipay, etc.) for both flows. After the shopper completes payment at their bank or wallet, Adyen redirects to `http://localhost:8080/result?reference=...`. The page starts polling for the webhook-confirmed status immediately, so the order outcome is visible as soon as the webhook arrives even if the client-side SDK result is not available.
 - The order ledger is an in-memory `Map` — see [ARCHITECTURE.md](ARCHITECTURE.md#where-state-lives).

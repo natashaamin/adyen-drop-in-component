@@ -21,7 +21,9 @@ export default function ControlsPanel({
     simulateRetry,
     onSimulateRetryChange,
     billingAddressRequired,
-    onBillingAddressRequiredChange
+    onBillingAddressRequiredChange,
+    flow,
+    onFlowChange
 }) {
     const currency = countries[countryCode]?.currency ?? "";
     const formatted = formatAmount(amountValue, currency);
@@ -85,18 +87,36 @@ export default function ControlsPanel({
 
             <div className="controls-section">
                 <p className="controls-section-label">Developer demos</p>
+
                 <label className="control-field">
-                    <span>Simulate network retry</span>
-                    <input
-                        type="checkbox"
-                        checked={simulateRetry}
-                        onChange={(e) => onSimulateRetryChange(e.target.checked)}
-                    />
+                    <span>Integration flow</span>
+                    <select value={flow} onChange={(e) => onFlowChange(e.target.value)}>
+                        <option value="sessions">Sessions</option>
+                        <option value="advanced">Advanced</option>
+                    </select>
                     <small>
-                        Calls <code>/sessions</code> twice with the same idempotency key — Adyen returns
-                        the same session both times, preventing duplicate charges on retry.
+                        <strong>Sessions</strong> — one <code>/sessions</code> call; Adyen manages
+                        the full lifecycle internally.{" "}
+                        <strong>Advanced</strong> — your backend calls <code>/paymentMethods</code>,{" "}
+                        <code>/payments</code>, and <code>/payments/details</code> directly, giving
+                        you full control over each step.
                     </small>
                 </label>
+
+                {flow === "sessions" && (
+                    <label className="control-field">
+                        <span>Simulate network retry</span>
+                        <input
+                            type="checkbox"
+                            checked={simulateRetry}
+                            onChange={(e) => onSimulateRetryChange(e.target.checked)}
+                        />
+                        <small>
+                            Calls <code>/sessions</code> twice with the same idempotency key — Adyen returns
+                            the same session both times, preventing duplicate charges on retry.
+                        </small>
+                    </label>
+                )}
 
                 <div className="control-field">
                     <span>Drop-in theme</span>

@@ -3,6 +3,7 @@ import cors from "cors";
 import morgan from "morgan";
 import { config } from "./config.js";
 import { sessionsRouter } from "./routes/sessions.js";
+import { paymentsRouter } from "./routes/payments.js";
 import { webhooksRouter } from "./routes/webhooks.js";
 import { ordersRouter } from "./routes/orders.js";
 
@@ -15,6 +16,7 @@ app.use(express.json());
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 
 app.use("/api", sessionsRouter);
+app.use("/api", paymentsRouter);
 app.use("/api", ordersRouter);
 app.use("/api", webhooksRouter);
 
