@@ -57,13 +57,6 @@ export default function OutcomePanel({ event }) {
                     <code>{event.reference}</code>
                 </dd>
 
-                {event.type !== "resolving" && (
-                    <>
-                        <dt>Drop-in result (client-side)</dt>
-                        <dd>{describeClientEvent(event)}</dd>
-                    </>
-                )}
-
                 <dt>Webhook-confirmed status</dt>
                 <dd>
                     {order ? (
@@ -93,15 +86,3 @@ export default function OutcomePanel({ event }) {
     );
 }
 
-function describeClientEvent(event) {
-    switch (event.type) {
-        case "completed":
-            return `resultCode: ${event.result?.resultCode ?? "unknown"}`;
-        case "failed":
-            return `resultCode: ${event.result?.resultCode ?? "refused/cancelled"}`;
-        case "error":
-            return `client error: ${event.error?.message ?? "unknown error"}`;
-        default:
-            return "—";
-    }
-}
