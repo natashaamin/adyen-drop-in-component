@@ -28,7 +28,5 @@ export const api = {
         request("/payments/details", { method: "POST", body: JSON.stringify(payload) }),
 
     getOrder: (reference) => request(`/orders/${encodeURIComponent(reference)}`),
-    listOrders: () => request("/orders"),
-    replayWebhook: (reference) =>
-        request(`/orders/${encodeURIComponent(reference)}/replay`, { method: "POST" })
+    listOrders: () => request("/orders")
 };
