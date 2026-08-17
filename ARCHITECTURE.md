@@ -83,7 +83,7 @@ The toggle in the settings panel remounts `DropinContainer` with the selected fl
 ### Sessions flow
 
 **1. Start a session.**
-The shopper configures a country and amount, optionally enters their email, and clicks **Proceed to checkout**. `DropinContainer` mounts and posts to `POST /api/sessions`.
+The shopper configures a country and amount on the store page and clicks **Proceed to checkout**. On the checkout page they enter their name and optionally their email alongside the Drop-in. `DropinContainer` mounts and posts to `POST /api/sessions`.
 
 **2. Backend creates the Adyen session.**
 `sessions.js` calls Adyen's `/sessions` with:
@@ -188,7 +188,7 @@ This requires tokenisation to be enabled on the merchant account in the Customer
 
 ## Click to Pay
 
-When the shopper enters an email on the store page, it flows through three levels:
+When the shopper enters an email on the checkout page, it flows through three levels:
 
 1. **Backend** — `shopperEmail` is included in the `/sessions` or `/paymentMethods` call, triggering Visa/Mastercard SRC recognition lookup.
 2. **`AdyenCheckout`** — for Sessions flow, `session.shopperEmail` tells the Drop-in a recognised shopper may be present.

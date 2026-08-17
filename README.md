@@ -22,9 +22,10 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the system design, payment lifecycle,
 - Recent orders table — click any row to expand the full event history
 
 **UX**
-- Two-column store page: settings panel always visible on the left, product card on the right
-- Floating 💳 test card bubble — click to open a panel with copyable card numbers, expiries, and CVCs
+- Two-column store page: settings panel on the left, product card + checkout button on the right
+- Two-column checkout page: shopper details form (first name, last name, email) on the left, Drop-in on the right
 - After payment, shows an order confirmation page ("Your order has been placed") with the webhook-driven payment lifecycle — no auto-redirect
+- Floating 💳 test card bubble — click to open a panel with copyable card numbers, expiries, and CVCs
 - Five accent-colour theme swatches update the Drop-in's CSS custom properties at runtime without remounting
 
 ## Project structure
@@ -46,11 +47,11 @@ backend/
 
 frontend/
   src/
-    App.jsx                    store page + checkout page routing
+    App.jsx                    store page + checkout page + order result page routing
     components/
       ControlsPanel.jsx        country, amount, theme, flow toggle
       DropinContainer.jsx      AdyenCheckout + Dropin lifecycle (Sessions & Advanced)
-      OutcomePanel.jsx         resultCode vs webhook status
+      OutcomePanel.jsx         webhook-confirmed status + lifecycle history
       OrdersPanel.jsx          recent orders table with history
       TestCardsPanel.jsx       floating test card bubble
       ResultPage.jsx           /result route (redirect-based payment methods)
