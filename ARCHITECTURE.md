@@ -107,7 +107,7 @@ The shopper configures a country and amount on the store page and clicks **Proce
 A `pending` order is created in `orderStore.js` keyed by `reference`.
 
 **4. Drop-in renders and submits.**
-The browser initialises `AdyenCheckout({ session, clientKey, environment })` and mounts `Dropin`. `DropinContainer` imports from `@adyen/adyen-web/auto` (full bundle) so all payment method component classes are pre-registered — no explicit `paymentMethodComponents` list needed. The Drop-in talks to Adyen directly via the public `clientKey` — it fetches localised payment method UI, tokenises card data client-side, and submits the payment without the backend touching cardholder data.
+The browser initialises `AdyenCheckout({ session, clientKey, environment, locale, amount, countryCode })` and mounts `Dropin`. `DropinContainer` imports from `@adyen/adyen-web/auto` (full bundle) so all payment method component classes are pre-registered — no explicit `paymentMethodComponents` list needed. The `locale` and `amount` fields are required by the Adyen SDK; they are forwarded from the backend session response. The Drop-in talks to Adyen directly via the public `clientKey` — it fetches localised payment method UI, tokenises card data client-side, and submits the payment without the backend touching cardholder data.
 
 ### Advanced flow
 
@@ -115,7 +115,7 @@ The browser initialises `AdyenCheckout({ session, clientKey, environment })` and
 `DropinContainer` posts to `POST /api/payment-methods`. The backend mints the merchant reference, creates the order record, and calls Adyen's `/paymentMethods`. The response (available payment methods for the country/amount) is returned to the browser along with the reference.
 
 **2. Drop-in renders.**
-`AdyenCheckout` is initialised with `paymentMethodsResponse` instead of a session. Because `@adyen/adyen-web/auto` is used, the Drop-in automatically knows how to render every type in the response (Klarna, SEPA Direct Debit, WeChat Pay, gift cards, etc.) without a `paymentMethodComponents` allowlist.
+`AdyenCheckout` is initialised with `paymentMethodsResponse`, `locale`, and `amount` (all required by the SDK) instead of a session. Because `@adyen/adyen-web/auto` is used, the Drop-in automatically knows how to render every type in the response (Klarna, SEPA Direct Debit, WeChat Pay, gift cards, etc.) without a `paymentMethodComponents` allowlist.
 
 **3. Shopper submits — `onSubmit` fires.**
 The Drop-in calls `onSubmit` with encrypted payment data. The frontend forwards it to `POST /api/payments`, which calls Adyen's `/payments`. The response is passed back to the SDK via `actions.resolve(result)`.

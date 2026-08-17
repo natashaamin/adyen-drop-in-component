@@ -58,7 +58,7 @@ export default function DropinContainer({
                         amount: pmData.amount,
                         // Step 2: shopper submits → forward encrypted data to /payments
                         onSubmit: async (state, _component, actions) => {
-                            if (submittedRef.current) { actions.reject(); return; }
+                            if (submittedRef.current) return;
                             submittedRef.current = true;
                             try {
                                 const result = await api.submitPayment({
@@ -119,8 +119,6 @@ export default function DropinContainer({
                         },
                         countryCode,
                         beforeSubmit: (data, _component, actions) => {
-                            if (submittedRef.current) { actions.reject(); return; }
-                            submittedRef.current = true;
                             actions.resolve(data);
                         },
                         onPaymentCompleted: (result) => {

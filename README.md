@@ -92,7 +92,7 @@ The **Integration flow** toggle in the settings panel switches between two modes
 | | Sessions | Advanced |
 |---|---|---|
 | Backend endpoint | `POST /api/sessions` | `POST /api/payment-methods` → `POST /api/payments` → `POST /api/payments/details` |
-| Frontend config | `session: { id, sessionData }` | `paymentMethodsResponse` + `onSubmit` + `onAdditionalDetails` |
+| Frontend config | `session: { id, sessionData }` + `locale`, `amount`, `countryCode` | `paymentMethodsResponse` + `onSubmit` + `onAdditionalDetails` |
 | Who calls Adyen `/payments` | Adyen SDK internally | Your backend |
 | Idempotency retry demo | Available | Not shown |
 

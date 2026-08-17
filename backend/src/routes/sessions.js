@@ -79,6 +79,8 @@ sessionsRouter.post("/sessions", async (req, res) => {
             sessionData: session.sessionData,
             reference,
             shopperEmail: session.shopperEmail ?? shopperEmail,
+            shopperLocale: preset.shopperLocale,
+            amount,
             clientKey: config.adyen.clientKey,
             environment: config.adyen.environment.toLowerCase(),
             ...(retryDemo && { retryDemo })
