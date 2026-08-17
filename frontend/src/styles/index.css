@@ -167,7 +167,19 @@ header h1 {
 /* Checkout page */
 .checkout-page {
     margin-top: 1.5rem;
-    max-width: 500px;
+}
+
+.checkout-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    align-items: start;
+}
+
+@media (max-width: 780px) {
+    .checkout-layout {
+        grid-template-columns: 1fr;
+    }
 }
 
 .checkout-shopper-email {
@@ -660,6 +672,28 @@ header h1 {
 .bin-info dd {
     margin: 0;
     font-weight: 600;
+}
+
+/* Checkout callout — explains what was / wasn't passed to Adyen */
+.checkout-callout {
+    background: #eef4ff;
+    border: 1px solid #b3cdfb;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.85rem;
+    color: #0050b3;
+    line-height: 1.5;
+}
+
+.checkout-callout strong {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 0.875rem;
+}
+
+.checkout-callout p {
+    margin: 0.4rem 0 0;
 }
 
 /* Order result page */

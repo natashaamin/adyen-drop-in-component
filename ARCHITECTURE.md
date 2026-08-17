@@ -107,7 +107,7 @@ The shopper configures a country and amount, optionally enters their email, and 
 A `pending` order is created in `orderStore.js` keyed by `reference`.
 
 **4. Drop-in renders and submits.**
-The browser initialises `AdyenCheckout({ session, clientKey, environment })` and mounts `Dropin`. The Drop-in talks to Adyen directly via the public `clientKey` — it fetches localised payment method UI, tokenises card data client-side, and submits the payment without the backend touching cardholder data.
+The browser initialises `AdyenCheckout({ session, clientKey, environment })` and mounts `Dropin`. `DropinContainer` imports from `@adyen/adyen-web/auto` (full bundle) so all payment method component classes are pre-registered — no explicit `paymentMethodComponents` list needed. The Drop-in talks to Adyen directly via the public `clientKey` — it fetches localised payment method UI, tokenises card data client-side, and submits the payment without the backend touching cardholder data.
 
 ### Advanced flow
 
@@ -115,7 +115,7 @@ The browser initialises `AdyenCheckout({ session, clientKey, environment })` and
 `DropinContainer` posts to `POST /api/payment-methods`. The backend mints the merchant reference, creates the order record, and calls Adyen's `/paymentMethods`. The response (available payment methods for the country/amount) is returned to the browser along with the reference.
 
 **2. Drop-in renders.**
-`AdyenCheckout` is initialised with `paymentMethodsResponse` instead of a session. The Dropin mounts with the same component configuration as the Sessions flow.
+`AdyenCheckout` is initialised with `paymentMethodsResponse` instead of a session. Because `@adyen/adyen-web/auto` is used, the Drop-in automatically knows how to render every type in the response (Klarna, SEPA Direct Debit, WeChat Pay, gift cards, etc.) without a `paymentMethodComponents` allowlist.
 
 **3. Shopper submits — `onSubmit` fires.**
 The Drop-in calls `onSubmit` with encrypted payment data. The frontend forwards it to `POST /api/payments`, which calls Adyen's `/payments`. The response is passed back to the SDK via `actions.resolve(result)`.
@@ -128,12 +128,12 @@ If the result contains an `action`, the SDK handles the 3DS challenge or redirec
 
 ### Result handling (both flows)
 
-- **Card / inline methods**: `onPaymentCompleted` or `onPaymentFailed` fires inline. The app auto-returns to the store after 2.5 seconds on success.
+- **Card / inline methods**: `onPaymentCompleted` or `onPaymentFailed` fires. `App.jsx` transitions to the **order result page** — a dedicated view showing a success/failure hero banner, the order summary, and `OutcomePanel` (webhook-confirmed status + lifecycle history). No auto-redirect; the shopper clicks "← Back to shop" when ready.
 - **Redirect methods (iDEAL, Bancontact, Alipay, etc.)**: The shopper is sent to their bank or wallet, then redirected back to `${FRONTEND_URL}/result?reference=...`. `ResultPage` immediately starts polling the backend for the webhook-confirmed status, so the order outcome is visible as soon as the webhook arrives.
 
 ### Webhook is the authoritative outcome (both flows)
 
-Independently of the browser, Adyen calls `POST /api/webhooks/notifications` once the payment settles. The webhook updates the order record that `OutcomePanel` polls every 2 seconds via `GET /api/orders/:reference`. The panel shows both the client-side `resultCode` and the webhook-confirmed status side by side — the gap between them is the entire reason webhook-driven status exists.
+Independently of the browser, Adyen calls `POST /api/webhooks/notifications` once the payment settles. The webhook updates the order record that `OutcomePanel` polls every 2 seconds via `GET /api/orders/:reference`. The panel shows the webhook-confirmed status and the full lifecycle event history (e.g. pending → authorised → captured) — the gap between the Drop-in completing and the webhook arriving is the demo's key teaching moment.
 
 ## Security boundary
 

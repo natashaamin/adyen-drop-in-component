@@ -7,7 +7,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the system design, payment lifecycle,
 ## Features
 
 **Payment**
-- Cards, iDEAL, Bancontact, PayPal, Google Pay, Apple Pay — resolved by Adyen per country, no hardcoding
+- Cards, iDEAL, SEPA Direct Debit, PayPal, Google Pay, Apple Pay, Klarna, WeChat Pay, gift cards — resolved by Adyen per country, no hardcoding
+- Full Drop-in bundle via `@adyen/adyen-web/auto` — all payment method components registered automatically, no manual list needed
 - Cardholder name required on card form
 - Live BIN lookup panel — brand, issuing country, and 3DS support shown after the first 6–8 digits
 - Optional partial billing address (postcode + country) for AVS fraud checks
@@ -17,13 +18,13 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the system design, payment lifecycle,
 **Developer demos**
 - Switch between Sessions flow and Advanced flow without restarting
 - Simulate network retry — calls `/sessions` twice with the same idempotency key and shows both session IDs side by side, proving Adyen returns the same one (Sessions flow only)
-- Webhook-driven order lifecycle — `OutcomePanel` shows the Drop-in's client-side `resultCode` alongside the backend's webhook-confirmed status, deliberately side by side so the gap is visible
+- Webhook-driven order lifecycle — after payment, `OutcomePanel` shows the webhook-confirmed status and full lifecycle event history (pending → authorised → captured etc.)
 - Recent orders table — click any row to expand the full event history
 
 **UX**
 - Two-column store page: settings panel always visible on the left, product card on the right
 - Floating 💳 test card bubble — click to open a panel with copyable card numbers, expiries, and CVCs
-- After a successful card payment the app automatically returns to the store page after 2.5 seconds
+- After payment, shows an order confirmation page ("Your order has been placed") with the webhook-driven payment lifecycle — no auto-redirect
 - Five accent-colour theme swatches update the Drop-in's CSS custom properties at runtime without remounting
 
 ## Project structure

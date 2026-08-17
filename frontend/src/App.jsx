@@ -71,6 +71,8 @@ function CheckoutDemo() {
     const [event, setEvent] = useState(null);
     const [loadError, setLoadError] = useState(null);
     const [started, setStarted] = useState(false);
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
     const [openFirst, setOpenFirst] = useState(false);
     const [simulateRetry, setSimulateRetry] = useState(false);
     const [billingAddressRequired, setBillingAddressRequired] = useState(false);
@@ -114,7 +116,7 @@ function CheckoutDemo() {
             </header>
 
             {!started ? (
-                /* ── Store page — settings left, product right ── */
+                /* ── Store page — settings left, product + buy button right ── */
                 <div className="layout store-page">
                     <ControlsPanel
                         countries={countries}
@@ -145,9 +147,56 @@ function CheckoutDemo() {
                                 <p className="product-price">{formatted}</p>
                             </div>
                         </div>
-
+                        <button
+                            className="proceed-btn"
+                            onClick={() => { setStarted(true); setEvent(null); }}
+                        >
+                            Proceed to checkout →
+                        </button>
+                    </div>
+                </div>
+            ) : (event?.type === "completed" || event?.type === "failed") ? (
+                /* ── Order result page ── */
+                <OrderResult
+                    event={event}
+                    formatted={formatted}
+                    onBack={() => {
+                        setStarted(false);
+                        setFirstName("");
+                        setLastName("");
+                        setShopperEmail("");
+                        setEvent(null);
+                    }}
+                />
+            ) : (
+                /* ── Checkout page — shopper form left, Drop-in right ── */
+                <div className="checkout-page">
+                    <button className="back-link" onClick={() => setStarted(false)}>
+                        ← Back to product
+                    </button>
+                    <div className="checkout-layout">
                         <div className="shopper-form">
                             <h2>Your details</h2>
+                            <div className="shopper-form-row">
+                                <label className="control-field">
+                                    <span>First name</span>
+                                    <input
+                                        type="text"
+                                        placeholder="Jane"
+                                        value={firstName}
+                                        onChange={(e) => setFirstName(e.target.value)}
+                                    />
+                                </label>
+                                <label className="control-field">
+                                    <span>Last name</span>
+                                    <input
+                                        type="text"
+                                        placeholder="Smith"
+                                        value={lastName}
+                                        onChange={(e) => setLastName(e.target.value)}
+                                    />
+                                </label>
+                            </div>
                             <label className="control-field">
                                 <span>Email address</span>
                                 <input
@@ -157,57 +206,26 @@ function CheckoutDemo() {
                                     onChange={(e) => setShopperEmail(e.target.value)}
                                 />
                                 <small>
-                                    Optional — enables{" "}
-                                    <strong>Click to Pay</strong> so Visa/Mastercard can
-                                    recognise you and surface your saved cards automatically.
+                                    Optional — enables <strong>Click to Pay</strong> so
+                                    Visa/Mastercard can recognise you and surface your saved
+                                    cards automatically.
                                 </small>
                             </label>
-                            <button
-                                className="proceed-btn"
-                                onClick={() => { setStarted(true); setEvent(null); }}
-                            >
-                                Proceed to checkout →
-                            </button>
                         </div>
+
+                        <DropinContainer
+                            key={`${countryCode}-${amountValue}-${flow}`}
+                            countryCode={countryCode}
+                            amountValue={amountValue}
+                            themeKey={themeKey}
+                            openFirst={openFirst}
+                            simulateRetry={simulateRetry}
+                            shopperEmail={shopperEmail || undefined}
+                            billingAddressRequired={billingAddressRequired}
+                            flow={flow}
+                            onOutcome={setEvent}
+                        />
                     </div>
-                </div>
-            ) : (event?.type === "completed" || event?.type === "failed") ? (
-                /* ── Order result page ── */
-                <OrderResult
-                    event={event}
-                    formatted={formatted}
-                    onBack={() => { setStarted(false); setEvent(null); }}
-                />
-            ) : (
-                /* ── Checkout page ── */
-                <div className="checkout-page">
-                    <button
-                        className="back-link"
-                        onClick={() => setStarted(false)}
-                    >
-                        ← Back to product
-                    </button>
-                    <div className="checkout-header">
-                        <span className="checkout-item-label">Demo Product</span>
-                        <span className="checkout-item-price">{formatted}</span>
-                    </div>
-                    {shopperEmail && (
-                        <p className="checkout-shopper-email">
-                            Paying as <strong>{shopperEmail}</strong>
-                        </p>
-                    )}
-                    <DropinContainer
-                        key={`${countryCode}-${amountValue}-${flow}`}
-                        countryCode={countryCode}
-                        amountValue={amountValue}
-                        themeKey={themeKey}
-                        openFirst={openFirst}
-                        simulateRetry={simulateRetry}
-                        shopperEmail={shopperEmail || undefined}
-                        billingAddressRequired={billingAddressRequired}
-                        flow={flow}
-                        onOutcome={setEvent}
-                    />
                 </div>
             )}
 

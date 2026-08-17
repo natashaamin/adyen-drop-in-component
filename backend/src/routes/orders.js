@@ -1,6 +1,5 @@
 import { Router } from "express";
-import { getOrder, listOrders, applyWebhookEvent } from "../services/orderStore.js";
-import { isDuplicate, markProcessed } from "../services/idempotencyStore.js";
+import { getOrder, listOrders } from "../services/orderStore.js";
 
 export const ordersRouter = Router();
 
@@ -14,29 +13,4 @@ ordersRouter.get("/orders/:reference", (req, res) => {
 
 ordersRouter.get("/orders", (_req, res) => {
     res.json(listOrders().slice(0, 25));
-});
-
-ordersRouter.post("/orders/:reference/replay", (req, res) => {
-    const order = getOrder(req.params.reference);
-    if (!order) return res.status(404).json({ error: "Unknown reference" });
-
-    const lastWebhook = [...order.history].reverse().find((e) => e.source?.startsWith("webhook:"));
-    if (!lastWebhook) return res.status(400).json({ error: "No webhook event to replay" });
-
-    const eventCode = lastWebhook.source.replace("webhook:", "");
-    const item = {
-        eventCode,
-        pspReference: order.pspReference,
-        success: String(lastWebhook.success),
-        merchantReference: order.reference,
-        amount: order.amount
-    };
-
-    if (isDuplicate(item)) {
-        return res.json({ duplicate: true, order });
-    }
-
-    const updated = applyWebhookEvent(item);
-    markProcessed(item);
-    res.json({ duplicate: false, order: updated });
 });
