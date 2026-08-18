@@ -1,50 +1,30 @@
-/* ── Payment method list ───────────────────────────────────────────── */
-.adyen-checkout__payment-method {
-    border-radius: 10px;
-    margin-bottom: 8px;
-    border: 1px solid #e0e3e8;
-    transition: box-shadow 0.15s ease;
+/* Adyen Drop-in style overrides using the CSS custom properties API.
+   Imported after @adyen/adyen-web/styles/adyen.css so these values take precedence.
+   Variable names sourced from https://github.com/Adyen/adyen-web */
+
+:root {
+    /* Rounded corners — applied to payment method items, inputs, and button */
+    --adyen-sdk-border-radius-m: 10px;
+
+    /* Input resting border — softer than the default (#848d96) */
+    --adyen-sdk-color-outline-tertiary: #c9cdd3;
+
+    /* Error state border */
+    --adyen-sdk-color-outline-critical: #d1372e;
+
+    /* Slightly larger text for inputs and labels */
+    --adyen-sdk-text-body-font-size: 0.95rem;
+
+    /* Bolder label weight */
+    --adyen-sdk-text-body-stronger-font-weight: 600;
 }
 
+/* Selected payment method — highlight border in brand blue */
+.adyen-checkout__payment-method--selected {
+    --adyen-sdk-color-outline-secondary: #0070f5;
+}
+
+/* Hover elevation — no CSS variable equivalent in the SDK */
 .adyen-checkout__payment-method:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.adyen-checkout__payment-method--selected {
-    border-color: #0070f5;
-    box-shadow: 0 0 0 1px #0070f5;
-}
-
-.adyen-checkout__payment-method__name {
-    font-weight: 600;
-    font-size: 0.95rem;
-}
-
-/* ── Input fields ──────────────────────────────────────────────────── */
-.adyen-checkout__input {
-    border-radius: 8px;
-    border-color: #c9cdd3;
-    font-size: 0.95rem;
-}
-
-.adyen-checkout__input--valid {
-    border-color: #0a7d3f;
-}
-
-.adyen-checkout__input--error {
-    border-color: #d1372e;
-}
-
-/* ── Labels ────────────────────────────────────────────────────────── */
-.adyen-checkout__label__text {
-    font-weight: 600;
-    font-size: 0.85rem;
-    color: #00112c;
-}
-
-/* ── Pay button ────────────────────────────────────────────────────── */
-.adyen-checkout__button--pay {
-    border-radius: 8px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
 }
